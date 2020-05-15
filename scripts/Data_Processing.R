@@ -1,8 +1,5 @@
 library(tidyverse)
 library(haven)
-library(mirt)
-
-set.seed(12345)
 options(scipen = 999)
 
 trust <- read_sav("W35_May18/ATP W35.sav")
@@ -26,42 +23,39 @@ trust <- trust %>% select(
   "SM6A_W35",
   "SM6B_W35",
 contains("SM"),
--contains("SM3"),
+contains("SM3"),
  "WEIGHT_W35"
  )
 
 trust <- drop_na(trust)
 
-instrument <- trust %>% select(contains("SM"), 
-                               -contains("SM6"),
-                                  -contains("SM3"))
+instrument <- trust %>% 
+select(contains("SM"), 
+       -contains("SM6"),
+       -contains("SM8"), 
+       -contains("SM10"),
+       -contains("SM11"),
+       -contains("SM3"))
 
-instrument <- instrument %>% select(1:16, 23:27, 33:43, everything())
+fit <- factanal(instrument, 9,
+                rotation = "varimax", 
+                scores = "regression")
 
+print(fit, digits=2, cutoff=.3, sort=TRUE)
 
-instrument_irt_12 <- mirt(instrument, model = 12, itemtype = "gpcm", method = "QMCEM", 
-                          technical = list(NCYCLES = 1000))
+trust <- cbind(trust, fit$scores)
 
-instrument_irt_11 <- mirt(instrument, model = 11, itemtype = "gpcm", method = "QMCEM", 
-                          technical = list(NCYCLES = 1000))
-
-instrument_irt_10 <- mirt(instrument, model = 10, itemtype = "gpcm", method = "QMCEM", 
-                          technical = list(NCYCLES = 1200))
-
-instrument_irt_9 <- mirt(instrument, model = 9, itemtype = "gpcm", method = "QMCEM", 
-                          technical = list(NCYCLES = 1200))
-
-
-
-
-
-#instrument_irt_10 <- mirt(instrument, model = 10, method = "QMCEM")
-
-summary(instrument_irt_10, rotate = "varimax")
-
-trust <- cbind(trust, fscores(instrument_irt_9, QMC = T))
-analysis <- trust %>% select(1:14,47:56)
-write_csv(analysis, "pre_processed_data.csv")
+analysis <- trust %>% 
+  select(1:14, 
+         contains("SM6"),
+         contains("SM8"), 
+         contains("SM10"),
+         contains("SM11"),
+         contains("SM3"),
+         contains("SM7"),
+         contains("Factor"), 
+        "WEIGHT_W35")
 
 
-
+write_csv(analysis, "data/pre_processed_data.csv")
+fit

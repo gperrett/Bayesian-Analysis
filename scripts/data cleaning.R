@@ -2,6 +2,7 @@ library(tidyverse)
 
 
 data <- read_csv("data/pre_processed_data.csv")
+
 # limit analysis to only users of facebook twitter or instagram
 users <- data %>% 
   filter(SNSA_W35 == 1| 
@@ -12,11 +13,11 @@ users <- users %>%
   rename(sex = F_SEX_FINAL,
          region = F_CREGION_FINAL,
          race = F_RACECMB_RECRUITMENT,
-         #income = F_INCOME_FINAL,
+         income = F_INCOME_FINAL,
          age = F_AGECAT_FINAL, 
          ideaology = F_IDEO_FINAL,
          education = F_EDUCCAT_FINAL,
-         #weight = WEIGHT_W35, 
+         weight = WEIGHT_W35, 
          regulation = TC5_W35)
 
 users <- users %>% 
@@ -24,7 +25,17 @@ users <- users %>%
            if_else(regulation == 1, 
                    "More Regulation", 
                    "Enough Regulation"),
-         
+         bullying = if_else(SM6A_W35 == 1, 1, 0),
+         support = if_else(SM6A_W35 == 2, 1, 0),
+         deception = if_else(SM6B_W35 == 1, 1, 0),
+         correct_misinformation = if_else(SM6B_W35 == 2, 1, 0),
+         accurate_pic = if_else(SM3_W35 == 1, 1, 0),
+         `censorship very likely` = if_else(SM7_W35 == 1, 1, 0),
+         `censorship not very likely` = if_else(SM7_W35  == 3, 1, 0),
+         `censorship not at all likely` = if_else(SM7_W35 == 1, 1, 0),
+         accept_selective_look = if_else(SM8A_W35 == 1, 1, 0),
+         selective_vote_reminder = if_else(SM8B_W35 == 1, 1, 0),
+         selective_emotion = if_else(SM8C_W35 == 1, 1, 0),
          male = if_else(sex == 2, 1, 0),
          some_college = if_else(education == 2, 1, 0),
          college_grads = if_else(education == 1, 1, 0),
@@ -50,8 +61,11 @@ users <- users %>%
          )
 
 
-model_data <- users %>% select(weight, regulation, contains("F"),
-                               26:48, region)
+model_data <- users %>% select(weight, 
+                               regulation, 
+                               contains("F"),
+                               37:69, 
+                               region)
 
 write_csv(model_data, "data/model_data.csv")
 
