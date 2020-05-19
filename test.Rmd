@@ -1,0 +1,241 @@
+---
+title: "test"
+author: "George Perrett"
+date: "5/18/2020"
+output: pdf_document
+---
+
+
+```{r setup, include=FALSE, message=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(rstan)
+library(rstanarm)
+library(ggthemes)
+library(bayesplot)
+library(kableExtra)
+library(caret)
+```
+
+
+```{r, include=FALSE, message=FALSE, warning=FALSE}
+
+model_data <- read_csv("data/model_data.csv")
+model_data <- model_data %>%
+  mutate(regulation = if_else(regulation == "More Regulation", 1, 0))
+
+
+```
+
+# Introduction
+
+Calls to increase government regulation of social media tech companies have been elevated in the national political dialogue. Social media companies have an inherent interest in limiting increased regulations which can disrupt many aspects of business models and growth strategies. 
+
+Public opinion is an important motivator of politicians actions, and the public's views towards social media companies and the extent to which they are regulated can either motivate or prevent politicians from altering existing frameworks. Political ideology and identities are inherently related to individuals opinions about regulation and government intervention, with those identifying as more conservative favoring less government involvement and those identifying as more liberal favoring a more active government. While political persuasion is likely remains a critically important determinant in individuals views on regulating the tech sector, individuals experiences directly interacting with social media sites and products may also influence their views. 
+
+This analysis applies Bayesian statistical methods to test is public opinion on regulating social media companies can be explained entirely as a function of ones political views or if the types of content users see and the user experience on social medias sites is also related to views towards regulation. Put another way, are opinions about regulating big tech all just politics, or is the relationship more complex? 
+
+If opinions about regulation are associated with specific aspects of the social media experience, social media companies may be able to restructure existing algorithms to down-prioritize these types of content as a means of increasing their favorability and preventing increased government intervention. 
+
+## The Data
+
+In 2018 the Pew Research Center surveyed a representative sample of Americans on their use or and feeling toward social media. Participants were asked whether the government should regulate social media companies more than they already are, about the same as they are now or less than they are now. This item was made dichotomous by coding respondents who support current levels or reduced levels of regulation with 0 and respondents favoring increased regulation with 1. This coding was used in all subsequent analyses. 
+
+Demographic items were respondents indicated their political identity, race and age were used as measures of political persuasion and identity. Political ideology was described as either very conservative, conservative, moderate (reference class), liberal or very liberal. Age was divided by users who were 18-29, 30-49 (reference class), 50-64 or 65 and above. Respondents could indicate their race as wither white (reference class), black, asian, mixed race or other. 
+
+
+User experiences with social media content was measured through three separate variables: the frequency of encounter posts that increased negative affect, the frequency of encountering politically charged, triggering and controversial content and the frequency of encountering disinformation.
+
+Factor analysis was used to combine 3 separate items about the frequency of seeing content that made users feel angry, depressed and lonely into a single continuous latent variable representing negative affect.  Similarity, a factor scores were used to combine a series of 4 separate items asking about the frequency that users encountered posts about race relations, sexual harassment/assault, gun control/gun violence and immigration into a single continuous latent variable representing politically charged content. A single item where respondents were asked to describe if they saw more posts promoting deception, saw more posts trying to point out misinformation or an equal amount each (reference class) was included as a measure of disinformation.
+
+To understand the relationship between political identity, social media content and views on regulation 3 candidate models were created and compared against each other. 
+
+# Hypotheses: comparing 3 separate models
+
+## Model 1: 
+### Views on regulation as a function of political ideology, age and race
+
+Model 1 is the uses only political identification, race and age to predict whether a given individual factors expanding existing regulations of social media companies or believes current regulatory practices are sufficient. If model fits the data the best, this implies that opinions on the regulation of social media companies are an extension of already existing political beliefs. 
+
+$$ regulation_i \sim Binomial(n,p_i) $$
+$$logit(p_i) = \alpha \space + \space \beta \space very \space conservative_i + \beta \space conservative_i + \beta \space liberal_i + \beta \space very \space liberal_i + $$
+$$\beta \space age:18-29_i + \beta \space age:50-64_i + \beta \space age:65 \space and \space up_i + $$
+$$\beta \space black_i + \beta \space asian_i + \beta \space mixed \space race_i + \beta \space race:other_i  $$
+
+## Model 2: 
+### Views on regulation as a function of political ideology, identity and features of social media sites
+
+Model 2 includes the same political and identity predictors as model 1 abut adds the measures of social media based features (negative affect, charged content and deceptive vs corrective information). 
+
+If model 2 fits the data better than the other models this supports the hypothesis that views towards the regulation of social media companies is not a purely political issues but is also related to the content and types of experiences encountered by users. 
+
+$$ regulation_i \sim Binomial(n,p_i) $$
+$$logit(p_i) = \alpha \space + \space \beta \space very \space conservative_i + \beta \space conservative_i + \beta \space liberal_i + \beta \space very \space liberal_i + $$
+$$\beta \space age:18-29_i + \beta \space age:50-64_i + \beta \space age:65 \space and \space up_i + $$
+$$\beta \space black_i + \beta \space asian_i + \beta \space mixed \space race_i + \beta \space race:other_i + $$
+$$\beta \space negative \space affect_i + \space \beta \space charged \space content_i + \beta \space deception_i + \space \beta \space correcting \space misinformation_i$$
+
+## Model 3: 
+### Views on regulation as a function of identity and features of social media sites with the role of user experience varying across different political ideologies
+
+Model 3 allows the relationship between social media content and opinions on regulation to vary across different political ideologies. The opinions of those with less extreme political opinions may be more malleable that those who identify as highly ideological. By estimating different slopes for each political identity, model 3 allows for these differential effects.If model 3 fits the data best, this implies that for some political identities, views on social media is are only a function of political identity, but for other political identities views on regulation vary with different experiences on social media sites.
+
+
+$$ regulation_i \sim Binomial(n,p_i) $$
+$$logit(p_i) = \alpha_{ideology_i} +$$
+$$\beta_{ideology_i}negative \ affect_i + \beta_{ideology_i} charged \ content_i +$$
+$$\beta_{ideology_i}deception_i + \beta_{ideology_i}correct \ misinformation_i + $$
+$$\beta \space age:18-29_i + \beta \space age:50-64_i + \beta \space age:65 \space and \space up_i + $$
+$$\beta \space black_i + \beta \space asian_i + \beta \space mixed \space race_i + \beta \space race:other_i $$
+$$\begin{bmatrix} \alpha_{ideology} \\ \beta_{ideology} \end{bmatrix} \sim \ MVNormal \  \left( \begin{bmatrix} \alpha \\ \beta \end{bmatrix},S \right) $$
+$$S = \begin{pmatrix} \sigma_{\alpha} & 0 \\ 0 & \sigma_{\beta} \end{pmatrix} \ R = \begin{pmatrix} \sigma_{\alpha} & 0 \\ 0 & \sigma_{\beta} \end{pmatrix} $$
+$$\alpha \sim Normal(0,2)$$
+$$\beta \ negative\ affect  \sim Normal(0, .25) $$
+$$\beta \ charged\ content \sim Normal(0, .25) $$
+$$\beta \ deception \sim Normal(0, 1.5) $$
+$$\beta \ correct \ misinformation \sim Normal(0, 1.5)$$
+$$(\sigma_{alpha}, \sigma_{beta}) = Exponential(1) $$
+$$R = LKJcorr(1) $$
+
+
+# Analysis 
+## Selecting Priors and Drawing from the Prior Predictive Distribution
+
+Specifying priors is the first step of a Bayesian analysis. Given that there already exists a large body of evidence connecting political ideology and views on regulation, informative priors were given to political identification.
+
+In contrast, less is known about relationship between age, race and social media related variables. This uncertainty was reflected with less informative priors that were all centered at 0 (showing equal likelihood of favoring or not favoring increased regulation) and given wider standard deviations. 
+
+The specific assigned priors are shown in the code block printed below. The following code not only assigns priors but draws from the prior predicative distribution to ensure that the selected priors make plausible predictions. 
+
+
+```{r, results='hide'}
+
+## Set priors
+# for demogrpahic only model 
+base_prior <- normal(c(-1, # prior for very conservative
+                       -.25, # prior for conservative
+                       .25, # prior for liberal
+                       1, # prior for every liberal
+                     rep(0, 7)),  #  weaker priors for race and age
+                   c(rep(.5, 4), # tigter scale for political ideology 
+                     rep(1, 7)), # more flexibility for other demogrpahics 
+                      autoscale = F)
+
+## Model 1
+
+# demographics only 
+M1 <- stan_glm(
+  regulation ~
+    very_conservative + conservative + liberal + very_liberal +
+    age_18_29 + age_50_64 + age_65_up +
+    black + asian + mixed_race + other,
+  data = model_data,
+  family = binomial,
+  prior_intercept = normal(0, 2, autoscale = F),
+  prior = base_prior, # informative priors for political identification
+  prior_PD = T, # samples from prior predictivee distribution
+  seed = 2,
+  cores = 4, 
+)
+
+# Model 2
+## Adding priors for social media variables
+full_prior <- normal(c(-1, -.25,.25, 1, # informative priors for political ideology
+                     rep(0, 11)),  #  weaker priors for race, age adn social media 
+                   c(rep(.5, 4), # tigter scale for political ideology 
+                     rep(1, 6), # more flexibility for other demogrpahics 
+                     rep(.25, 2),
+                     rep(1, 3)), 
+                      autoscale = F)
+
+M2 <- stan_glm(
+  regulation ~
+    very_conservative + conservative + liberal + very_liberal +
+    age_18_29 + age_50_64 + age_65_up +
+    black + asian + mixed_race + other + 
+    # adding UX varaibles
+    Negative_Affect + Charged_Content + deception + correct_misinformation, 
+  data = model_data,
+  family = binomial,
+  prior_intercept = normal(0, 2, autoscale = F),
+  prior = full_prior,
+  prior_PD = T,
+  seed = 2,
+  cores = 4, 
+)
+
+# Model 3
+M3 <- stan_glmer(
+  regulation ~
+    # Population Estimates:
+    Negative_Affect + Charged_Content +
+    deception + correct_misinformation +
+    age_18_29 + age_50_64 + age_65_up +
+    black + asian + mixed_race + other +
+    # Varying Slopes by ideology:
+    (
+      Negative_Affect + Charged_Content +
+        deception + correct_misinformation |
+        ideology
+    ),
+  family = binomial("logit"),
+  model_data,
+  prior_intercept = normal(0, 2, autoscale = F),
+  prior = normal(0,c(rep(.25, 2),rep(1.5,9)), autoscale = F),
+  prior_PD = T,
+  QR = TRUE,
+  adapt_delta = .99,
+  seed = 1234,
+  chains = 2,
+  cores = 2
+)
+```
+
+
+```{r}
+# fix priors
+#priors[, 1:3] %>% pander(justify = 'left', caption = "Priors")
+M1_prior <- tibble(Variable = c(names(coefficients(M1))[1:5], "race/age"),
+                   Prior = c("Normal (0, 2)", 
+                             "Normal (1, .5)",
+                             "Normal (.25, .5)",
+                             "Normal (-.25, .5)",
+                             "Normal (-1, .5)",
+                             "Normal (0, 1.5)")) %>% 
+  pander::pander(justify = 'left', caption = "Priors Model 1")
+
+
+M2_prior <- tibble(Variable = c(names(coefficients(M2))[1:5], "race/age", "deception/correct misinformation", "negative affect/charged content"),
+                   Prior = c("Normal (0, 2)", 
+                             "Normal (1, .5)",
+                             "Normal (.25, .5)",
+                             "Normal (-.25, .5)",
+                             "Normal (-1, .5)",
+                             "Normal (0, 1.5)",
+                             "Normal (0, 1.5)",
+                             "Normal (0, .25)")) %>% 
+  pander::pander(justify = 'left', caption = "Priors Model 2")
+
+
+
+
+M3_prior <- tibble(Variable = c("(Intercept)", "race/age", 
+                                "deception/correct misinformation", 
+                                "negative affect/charged content", 
+                                "Standard Deviation Ideology", 
+                                "Correlation of Ideaology"),
+                   Prior = c("Normal (0, 2)",
+                             "Normal (0, 1.5)",
+                             "Normal (0, 1.5)",
+                             "Normal (0, .25)", 
+                             "Exponential (1)",
+                             "LKJcorr (1)")) %>% 
+  pander::pander(justify = 'left', caption = "Priors Model 3")
+
+
+kable(list(M1_prior, M2_prior, M3_prior))
+
+```
+
+
+

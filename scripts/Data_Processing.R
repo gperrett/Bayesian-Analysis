@@ -18,7 +18,7 @@ trust <- trust %>% select(
   "F_EDUCCAT_FINAL", # education 
   "F_RACECMB_RECRUITMENT", #race
   "F_AGECAT_FINAL", # age
-  "F_INCOME_FINAL", # income
+  "F_INCOME_RECODE_FINAL", # income
   "F_IDEO_FINAL", # ideology
   "SM6A_W35",
   "SM6B_W35",
