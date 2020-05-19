@@ -5,6 +5,8 @@ date: "George Perrett"
 output: 
   pdf_document:
     toc: true
+  html_document:
+    df_print: paged
 ---
 
 ```{r setup, include=FALSE, message=FALSE, warning=FALSE}
@@ -56,12 +58,12 @@ To understand the relationship between political identity, social media content 
 ## Model 1: 
 ### Views on regulation as a function of political ideology, age and race
 
-Model 1 is the uses only political identification, race and age to predict whether a given individual factors expanding existing regulations of social media companies or believes current regulatory practices are sufficient. If model fits the data the best, this implies that opinions on the regulation of social media companies are an extension of already existing political beliefs. 
+Model 1 is the uses only political identification, race and age to predict whether a given individual factors expanding existing regulations of social media companies or believes current regulatory practices are sufficient. If model 1 fits the data the best, this implies that opinions on the regulation of social media companies are an extension of already existing political beliefs. 
 
 $$ regulation_i \sim Binomial(n,p_i) $$
-$$logit(p_i) = \alpha \space + \space \beta \space very \space conservative_i + \beta \space conservative_i + \beta \space liberal_i + \beta \space very \space liberal_i + $$
-$$\beta \space age:18-29_i + \beta \space age:50-64_i + \beta \space age:65 \space and \space up_i + $$
-$$\beta \space black_i + \beta \space asian_i + \beta \space mixed \space race_i + \beta \space race:other_i  $$
+$$logit(p_i) = \alpha \space + \beta \space ideology_i + \beta \space age_i + \beta \space race_i $$
+
+
 
 ## Model 2: 
 ### Views on regulation as a function of political ideology, identity and features of social media sites
@@ -71,9 +73,7 @@ Model 2 includes the same political and identity predictors as model 1 abut adds
 If model 2 fits the data better than the other models this supports the hypothesis that views towards the regulation of social media companies is not a purely political issues but is also related to the content and types of experiences encountered by users. 
 
 $$ regulation_i \sim Binomial(n,p_i) $$
-$$logit(p_i) = \alpha \space + \space \beta \space very \space conservative_i + \beta \space conservative_i + \beta \space liberal_i + \beta \space very \space liberal_i + $$
-$$\beta \space age:18-29_i + \beta \space age:50-64_i + \beta \space age:65 \space and \space up_i + $$
-$$\beta \space black_i + \beta \space asian_i + \beta \space mixed \space race_i + \beta \space race:other_i + $$
+$$logit(p_i) = \alpha \space + \beta \space ideology_i + \beta \space age_i + \beta \space race_i + $$
 $$\beta \space negative \space affect_i + \space \beta \space charged \space content_i + \beta \space deception_i + \space \beta \space correcting \space misinformation_i$$
 
 ## Model 3: 
@@ -83,11 +83,9 @@ Model 3 allows the relationship between social media content and opinions on reg
 
 
 $$ regulation_i \sim Binomial(n,p_i) $$
-$$logit(p_i) = \alpha_{ideology_i} +$$
-$$\beta_{ideology_i}negative \ affect_i + \beta_{ideology_i} charged \ content_i +$$
-$$\beta_{ideology_i}deception_i + \beta_{ideology_i}correct \ misinformation_i + $$
-$$\beta \space age:18-29_i + \beta \space age:50-64_i + \beta \space age:65 \space and \space up_i + $$
-$$\beta \space black_i + \beta \space asian_i + \beta \space mixed \space race_i + \beta \space race:other_i $$
+$$logit(p_i) = \alpha_{ideology_i}  + \beta \space age_i + \beta \space race_i \ + $$
+$$\beta_{ideology_i}negative \ affect_i + \beta_{ideology_i} charged \ content_i + \beta_{ideology_i}deception_i + \beta_{ideology_i}correct \ misinformation_i $$
+
 $$\begin{bmatrix} \alpha_{ideology} \\ \beta_{ideology} \end{bmatrix} \sim \ MVNormal \  \left( \begin{bmatrix} \alpha \\ \beta \end{bmatrix},S \right) $$
 $$S = \begin{pmatrix} \sigma_{\alpha} & 0 \\ 0 & \sigma_{\beta} \end{pmatrix} \ R = \begin{pmatrix} \sigma_{\alpha} & 0 \\ 0 & \sigma_{\beta} \end{pmatrix} $$
 $$\alpha \sim Normal(0,2)$$
@@ -102,17 +100,9 @@ $$R = LKJcorr(1) $$
 # Analysis 
 ## Selecting Priors and Drawing from the Prior Predictive Distribution
 
-Specifying priors is the first step of a Bayesian analysis. Given that there already exists a large body of evidence connecting political ideology and views on regulation, informative priors were given to political identification.
+```{r, echo = FALSE, results='hide'}
 
-In contrast, less is known about relationship between age, race and social media related variables. This uncertainty was reflected with less informative priors that were all centered at 0 (showing equal likelihood of favoring or not favoring increased regulation) and given wider standard deviations. 
-
-The specific assigned priors are shown in the code block printed below. The following code not only assigns priors but draws from the prior predicative distribution to ensure that the selected priors make plausible predictions. 
-
-
-```{r, results='hide'}
-
-## Set priors
-# for demogrpahic only model 
+# fprior for M1 only model 
 base_prior <- normal(c(-1, # prior for very conservative
                        -.25, # prior for conservative
                        .25, # prior for liberal
@@ -149,6 +139,7 @@ full_prior <- normal(c(-1, -.25,.25, 1, # informative priors for political ideol
                      rep(1, 3)), 
                       autoscale = F)
 
+## Draw form M2 prior distribution
 M2 <- stan_glm(
   regulation ~
     very_conservative + conservative + liberal + very_liberal +
@@ -165,7 +156,8 @@ M2 <- stan_glm(
   cores = 4, 
 )
 
-# Model 3
+
+# Draw from Model 3 Prior Distribution
 M3 <- stan_glmer(
   regulation ~
     # Population Estimates:
@@ -192,65 +184,100 @@ M3 <- stan_glmer(
 )
 ```
 
+Specifying priors is the first step of a Bayesian analysis. The prior beliefs about the variables of all 3 candidate models are shown below in Table 1. By nature of what it is, political ideology is likely related to views on regulation. Accordingly, ideologies were given informative priors that represent the belief that regulation becomes less favorable among those identifying as more conservative and more favorable among those identifying as more liberal.
 
-```{r}
-# fix priors
-#priors[, 1:3] %>% pander(justify = 'left', caption = "Priors")
-M1_prior <- tibble(Variable = c(names(coefficients(M1))[1:5], "race/age"),
-                   Prior = c("Normal (0, 2)", 
-                             "Normal (1, .5)",
-                             "Normal (.25, .5)",
-                             "Normal (-.25, .5)",
-                             "Normal (-1, .5)",
-                             "Normal (0, 1.5)")) %>% 
-  pander::pander(justify = 'left', caption = "Priors Model 1")
+In contrast, less is known about relationship between age, race and social media related variables. This uncertainty is reflected by priors centered at 0 with larger ranges of possible values. For the multilevel model (model 3) the exponential sigma prior and LKJ prior and  allows for a full range of correlations between intercepts and slopes. 
+
+```{r, echo=FALSE}
+# Creating Table 1. 
+
+# Col 1
+priors <- tibble(
+  Variables = c(
+    "Intercept",
+    "very conservative",
+    "conservative",
+    "liberal",
+    "very liberal",
+    "race",
+    "age",
+    "deception",
+    "correct misinformation",
+    "negative affect",
+    "charged content",
+    "Sigma",
+    "Correlation"
+  ),
+# Col 2
+  `Model 1` = c(
+    "Normal (0, 2)",
+    "Normal (1, .5)",
+    "Normal (.25, .5)",
+    "Normal (-.25, .5)",
+    "Normal (-1, .5)",
+    "Normal (0, 1.5)",
+    "Normal (0, 1.5)",
+    "",
+    "",
+    "",
+    "",
+    "",
+    ""
+  ),
+# Col 3.  
+  `Model 2` = c(
+    "Normal (0, 2)",
+    "Normal (1, .5)",
+    "Normal (.25, .5)",
+    "Normal (-.25, .5)",
+    "Normal (-1, .5)",
+    "Normal (0, 1.5)",
+    "Normal (0, 1.5)",
+    "Normal (0, 1.5)",
+    "Normal (0, 1.5)",
+    "Normal (0, .25)",
+    "Normal (0, .25)",
+    "",
+    ""
+  ),
+  
+# Col 4.   
+  `Model 3` = c(
+    "Normal (0, 2)",
+    "",
+    "",
+    "",
+    "",
+    "Normal (0, 1.5)",
+    "Normal (0, 1.5)",
+    "Normal (0, 1.5)",
+    "Normal (0, 1.5)",
+    "Normal (0, .25)",
+    "Normal (0, .25)",
+    "Exponential (1)",
+    "LKJcorr (1)"
+  )
+)
 
 
-M2_prior <- tibble(Variable = c(names(coefficients(M2))[1:5], "race/age", "deception/correct misinformation", "negative affect/charged content"),
-                   Prior = c("Normal (0, 2)", 
-                             "Normal (1, .5)",
-                             "Normal (.25, .5)",
-                             "Normal (-.25, .5)",
-                             "Normal (-1, .5)",
-                             "Normal (0, 1.5)",
-                             "Normal (0, 1.5)",
-                             "Normal (0, .25)")) %>% 
-  pander::pander(justify = 'left', caption = "Priors Model 2")
-
-
-
-
-M3_prior <- tibble(Variable = c("(Intercept)", "race/age", 
-                                "deception/correct misinformation", 
-                                "negative affect/charged content", 
-                                "Standard Deviation Ideology", 
-                                "Correlation of Ideaology"),
-                   Prior = c("Normal (0, 2)",
-                             "Normal (0, 1.5)",
-                             "Normal (0, 1.5)",
-                             "Normal (0, .25)", 
-                             "Exponential (1)",
-                             "LKJcorr (1)")) %>% 
-  pander::pander(justify = 'left', caption = "Priors Model 3")
-
-
-kable(list(M1_prior, M2_prior, M3_prior))
+kable(priors, "latex", booktabs = T, caption = "Priors") %>%  
+  row_spec(0, bold = T) %>% 
+  kable_styling(latex_options = c("striped", "hold_position"), full_width = T)
 
 ```
 
 
-### Visualizing the Prior Predictive Distribution
+## Visualizing the Prior Predictive Distribution
 
 The plot shown below provides predictions drawn from the priors for each of the 3 models. Predictions are grouped by political ideology to inspect informative prior given to different ideologies. 
 
-The plot suggests that all predictions are in a reasonable range and that the assumptions of the prior specifications are reflected in draws from the prior predictive distribution. Different political ideologies are grouped together in model 3 due to the multi-level structure of the data.
+The plot suggests that all predictions are in a reasonable range and that the assumptions of the prior specifications are reflected in draws from the prior predictive distribution. The clustering of different political ideologies in model 3 due to the multi-level structure of the data. Model 3 allows the slopes and intercepts to differ between ideologies and differences between groups will not be expresssed until after conditioning on the data.
 
 ```{r, echo=FALSE}
 # save prior distributions 
 prior_dem <- as.matrix(M1)
 prior_ux <- as.matrix(M2)
 prior_M3 <- as.matrix(M3)
-
 
 # obtain preditvie draws from the prior predictive distribution
 politics_pred <- posterior_predict(M1) 
@@ -296,9 +323,9 @@ plot_data %>% select(`Model 1`,
 
 ## Conditioning on the Data: Fitting and Comparing Models
 
-After assessing the prior distributions, the code chunk below conditions on the data and fits the models. These results can be used to conduct inference and evaluate the established hypotheses. 
+After assessing the prior distributions, conditioning on the data and drawing from the posterior distribution updates prior beliefs to fit the observed data. After updating beliefs based upon the observed data, the three models can be compared against one another to test the competing hypotheses. 
 
-```{r, results='hide'}
+```{r, echo = FALSE, results='hide'}
 # Fitting to the data
 M1 <- update(M1, prior_PD = F)
 M2 <- update(M2, prior_PD = F)
@@ -313,10 +340,11 @@ compare <- loo_compare(politics_loo, ux_loo, ux_varying_slopes_loo)
 
 ```
 
-Leave one out cross validation (LOO) was used to compare the three models. This approach tests model on unseen data and prevents over-fitting. The model that maximized elpd provides the best fit to the data. Shown below in Table 1. Model 2 which includes social media experience variables with an equal effect across different political ideologies produced the best results. 
+This comparison was made using leave one out cross validation (LOO). This approach tests each model against observations not used to fit the model and thus protects conclusions from being  over-fit. The model that maximized elpd provides the best fit to the data. Model 2 which includes social media experience variables with an equal effect across different political ideologies produced the best results. 
 
 ```{r, echo=FALSE}
-kable(compare, "latex", booktabs = T, caption = "Model Comparisons") %>% 
+kable(compare, "latex", booktabs = T, caption = "LOO Cross Validation") %>% 
+  row_spec(0, bold = T) %>% 
   kable_styling(latex_options = c("hold_position", "striped"))
 ```
 
@@ -365,7 +393,9 @@ ux_loo$diagnostics$pareto_k %>%
 
 ### Calibration
 
-Logistic regression models return predictions in the form of percentages. The higher the percentage the more likely a data point is to be in class 1, the lower the percentage the more likely it is to be in class 0. Calibration plots compare predictor probabilities against empirical probabilities. When calibration is good, an event that is predicted to haven 70% time actually happens 70% of the time. In calibration plots, "good" calibration is reflected when points are close to the signal line. Shown below, the final model is well calibrated and, in general, higher predicted probabilities coincide with higher empirical probabilities. 
+Logistic regression models return predictions in the form of percentages. The higher the percentage the more likely a data point is to be in class 1, the lower the percentage the more likely it is to be in class 0. Calibration plots compare predictor probabilities against empirical probabilities. 
+
+When calibration is good, an event that is predicted to haven 70% time actually happens 70% of the time. In calibration plots, "good" calibration is reflected when points are close to the signal line. Shown below, the final model is well calibrated and, in general, higher predicted probabilities coincide with higher empirical probabilities. Calibration is somewhat less precise towards the extreme probabilities due to the relatively few data points with predicted and empirical probabilities above 80% or below 20% but the majority of the data set is well calibrated.
 
 ```{r,echo=FALSE, warning=FALSE}
 
@@ -396,7 +426,7 @@ Model 2 had the best fit to the data which provides evidence that opinions about
 
 ### Parameter realizations
 
-Table 2 presents the median value of each parameter along with a corresponding 90% intervals.
+Table 3 presents the median value of each parameter along with a corresponding 90% intervals. The 90% credible intervals indicate that there is only 5% change that the parameter is above or below the given range of realizations. The ability to make such probabilistic statements about model output is one of the major advantages of the Bayesian approach. 
 
 ```{r,echo=FALSE}
 
@@ -405,11 +435,13 @@ round(posterior_interval(M2, prob = 0.9), 2))
 
 kable(table, "latex", booktabs = T, 
       caption = "Model Output") %>% 
-  kable_styling(latex_options = c("hold_position", "striped"))
+  row_spec(0, bold = T) %>% 
+  kable_styling(latex_options = c("striped","hold_position"))
 
 
 
 ```
+
 
 ### Social media content 
 
@@ -447,6 +479,7 @@ mcmc_areas(M2,
                "conservative",
                "very_conservative"), 
            prob = .9) + 
+    geom_vline(xintercept = 0, linetype = "dashed") + 
   theme_fivethirtyeight() + 
   labs(title = "Political ideology")
 
@@ -469,13 +502,14 @@ mcmc_areas(M2,
                "mixed_race",
                "other"), 
            prob = .9) + 
+    geom_vline(xintercept = 0, linetype = "dashed") + 
   theme_fivethirtyeight() + 
   labs(title = "Demographic Variables")
 ```
 
 # Conclusion and Notes on Causality
 
-This analysis found that the types of content users  report seeing is associated with their views on whether or not social media companies need to be more regulated. This is valuable to social media companies in that it identifies that down prioritizing deceptive information and posts that generate negative affect may be an effective stratagy to increase favorability among the general public. This analysis also identifies several political, age and racial demographics were social media companies have an opportunity to improve relations with. 
+This analysis found that the types of content users  report seeing is associated with their views on whether or not social media companies need to be more regulated. This is valuable to social media companies in that it identifies that down prioritizing deceptive information and posts that generate negative affect may be an effective strategy to increase favorability among the general public. This analysis also identifies several political, age and racial demographics were social media companies have an opportunity to improve relations with. 
 
 The analysis conducted represent a stating point for more in depth studies, but it needs to be noted that the design used is not causal in nature. The results reported do not imply that social media content causes users to favor more or less regulation. While this is possible, it can not be confirmed through this study design. Subsequent intervention studies, should explore if down prioritizing posts with negative affect, charged content or disinformation directly lead to changes in opinion. 
 
