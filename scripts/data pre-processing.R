@@ -2,7 +2,7 @@ library(tidyverse)
 library(haven)
 options(scipen = 999)
 
-trust <- read_sav("W35_May18/ATP W35.sav")
+trust <- read_sav("inputs/W35_May18/ATP W35.sav")
 trust <- na_if(trust, 99)
 
 trust <- trust %>% select(
